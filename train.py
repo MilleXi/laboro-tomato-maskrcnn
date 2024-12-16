@@ -131,7 +131,7 @@ if __name__ == '__main__':
     print(f"使用设备: {device}")
 
     # 设置数据集路径
-    data_path = "laboro-tomato"
+    data_path = "laboro-tomato-DatasetNinja-Coco"
     train_data_dir = os.path.join(data_path, "train")
     train_coco = os.path.join(data_path, "annotations", "instances_train.json")
     val_data_dir = os.path.join(data_path, "val")
