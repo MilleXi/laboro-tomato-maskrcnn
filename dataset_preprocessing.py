@@ -5,7 +5,14 @@ from glob import glob
 from pathlib import Path
 
 def convert_and_organize(src_dir, coco_root):
-    directories = ["annotations",'train','val']
+    """
+    将自定义格式的数据集转换为COCO格式
+    
+    Args:
+        src_dir: 源数据集目录
+        coco_root: 输出的COCO格式数据集目录
+    """
+    directories = ["annotations", 'train', 'val']
 
     # 创建COCO数据集目录结构
     for dir in directories:
@@ -55,16 +62,29 @@ def convert_and_organize(src_dir, coco_root):
         'Train': (directories[1], train_coco),
         'Test': (directories[2], val_coco)
     }
+
+    # 定义类别映射
+    class_to_id = {
+        "b_fully_ripened": 1,
+        "b_green": 2,
+        "b_half_ripened": 3,
+        "l_fully_ripened": 4,
+        "l_green": 5,
+        "l_half_ripened": 6
+    }
     
     for src_split, (target_split, coco_data) in splits.items():
         img_dir = os.path.join(src_dir, src_split, 'img')
         ann_dir = os.path.join(src_dir, src_split, 'ann')
         target_img_dir = os.path.join(coco_root, target_split)
         
+        # 确保目标图片目录存在
+        os.makedirs(target_img_dir, exist_ok=True)
+        
         img_files = sorted(glob(os.path.join(img_dir, '*.jpg')))
         
         for img_id, src_img_path in enumerate(img_files, 1):
-            # 生成6位数字的文件名
+            # 生成12位数字的文件名
             new_img_name = f"{img_id:012d}.jpg"
             dst_img_path = os.path.join(target_img_dir, new_img_name)
             
@@ -74,6 +94,7 @@ def convert_and_organize(src_dir, coco_root):
             # 读取原始标注
             ann_path = os.path.join(ann_dir, f"{os.path.basename(src_img_path)}.json")
             if not os.path.exists(ann_path):
+                print(f"Warning: Annotation file not found for {src_img_path}")
                 continue
                 
             with open(ann_path, 'r') as f:
@@ -90,6 +111,13 @@ def convert_and_organize(src_dir, coco_root):
             
             # 处理标注信息
             for obj in ann_data["objects"]:
+                # 获取类别ID
+                category_id = class_to_id.get(obj["classTitle"])
+                if category_id is None:
+                    print(f"Warning: Unknown category {obj['classTitle']}")
+                    continue
+
+                # 处理分割点
                 points = obj["points"]["exterior"]
                 segmentation = []
                 for point in points:
@@ -105,10 +133,11 @@ def convert_and_organize(src_dir, coco_root):
                     max(y_coords) - min(y_coords)   # height
                 ]
                 
+                # 创建标注
                 annotation = {
                     "id": ann_id,
                     "image_id": img_id,
-                    "category_id": 1,
+                    "category_id": category_id,
                     "segmentation": [segmentation],
                     "area": bbox[2] * bbox[3],
                     "bbox": bbox,
@@ -119,14 +148,19 @@ def convert_and_organize(src_dir, coco_root):
                 ann_id += 1
     
     # 保存标注文件
-    with open(os.path.join(coco_root, 'annotations', 'instances_train.json'), 'w') as f:
-        json.dump(train_coco, f, indent=2)
+    ann_train_path = os.path.join(coco_root, 'annotations', 'instances_train.json')
+    ann_val_path = os.path.join(coco_root, 'annotations', 'instances_val.json')
     
-    with open(os.path.join(coco_root, 'annotations', 'instances_val.json'), 'w') as f:
+    with open(ann_train_path, 'w') as f:
+        json.dump(train_coco, f, indent=2)
+    print(f"Saved training annotations to {ann_train_path}")
+    
+    with open(ann_val_path, 'w') as f:
         json.dump(val_coco, f, indent=2)
+    print(f"Saved validation annotations to {ann_val_path}")
 
 if __name__ == "__main__":
-    src_dir = "dataset/laboro-tomato-DatasetNinja"  # LaboroTomato数据集目录
-    coco_root = "dataset/laboro-tomato-DatasetNinja-Coco"  # 输出的COCO格式数据集目录
+    src_dir = "laborotomato-DatasetNinja"  # 源数据集目录
+    coco_root = "laboro-tomato"  # 输出的COCO格式数据集目录
     convert_and_organize(src_dir, coco_root)
     print("转换完成！")
