@@ -165,3 +165,4 @@ laborotomato-DatasetNinja/
 wandb/
 checkpoints/
 results/
+evaluation_results/
